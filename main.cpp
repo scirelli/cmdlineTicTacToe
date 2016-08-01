@@ -6,6 +6,12 @@
 //  Copyright © 2016 Cirelli, Stephen. All rights reserved.
 //
 //  Currently only supports 3x3 board
+//  |  |   
+//---------
+//  |  |
+//---------
+//  |  |   
+
 
 #include <iostream>
 #include <stdio.h>
@@ -13,7 +19,7 @@
 #include <unistd.h>
 
 #define BOARD_WIDTH 3
-#define BOARD_HEIGHT 3
+#define BOARD_HEIGHT BOARD_WIDTH
 
 #define ROW_LENGTH BOARD_WIDTH*4+3 // | X | O | X |\n\000 
 
@@ -40,7 +46,8 @@ void printHelp();
 char getPlayersPiece();
 bool makeMove(char move, char piece, char *board);
 bool makeMove(int move, char piece, char *board);
-int cpuMove(char board[][BOARD_HEIGHT]);
+int cpuMove(char board[][BOARD_HEIGHT], char piece, char playerPiece);
+bool isGameOver();
 
 int main(int argc, const char * argv[]) {
     char board[BOARD_WIDTH][BOARD_HEIGHT],
@@ -100,12 +107,17 @@ void playGame(char board[][BOARD_HEIGHT]){
                 printBoardToStdout(board);
                 printf("\n\nCPU's turn...\n");
                 sleep(2);
-                if(!makeMove(cpuMove(board), cpuPiece, *board)){
+                if(!makeMove(cpuMove(board, cpuPiece, userPiece), cpuPiece, *board)){
                     printf("Game Over");
                     keepPlaying = false;
                 }
             }else{
-                printf("Invalid move! Try again. %c\n\n", userResponse);
+                if(isGameOver(board)){
+                    printf("Game Over");
+                    keepPlaying = false;
+                }else{
+                    printf("Invalid move! Try again. %c\n\n", userResponse);
+                }
             }
         }else if( userResponse == ESCAPE_CHAR ){
             keepPlaying = false;
@@ -122,7 +134,7 @@ bool makeMove(char move, char piece, char *board){
 }
 
 //i = (BOARD_WIDTH*y) + x
-bool makeMove(int move, char piece, char *board){
+bool makeMove(unsigned int move, char piece, char *board){
     if( move > 8 || move < 0 ) return false;
     char *pos = board+move;
     
@@ -134,7 +146,51 @@ bool makeMove(int move, char piece, char *board){
     return false;
 }
 
-int cpuMove(char board[][BOARD_HEIGHT]){
+unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+    char openSpots = [BOARD_WIDTH*BOARD_HEIGHT],
+         blockableSpots = [BOARD_WIDTH];
+    unsigned char openSpotsPtr = 0,
+                  blockableSpotsPtr = 0,
+                  square = BLANK_SQUARE;
+
+    //horazontal 
+    for(unsigned int y=0, rowCount=0; y<BOARD_HEIGHT; y++){
+        for(unsigned int x=0; x<BOARD_WIDTH; x++){
+            square = board[x][y];
+            if(square == BLANK_SQUARE){
+                openSpots[openSpotsPtr++] = y*BOARD_WIDTH + x;
+            }else if(square == playerPiece){
+                rowCount++;
+                //Block
+                if(rowCount == (BOARD_WIDTH-1)){
+                    return y*BOARD_WIDTH + x;
+                }
+            }
+        }
+        rowCount = 0;
+    }
+
+    //Left angle
+    for(unsigned int x=0,pos=0, rowCount=0, rowCount2=0; x<BOARD_WIDTH; x++){
+        square = board[x][x];
+        if(square == playerPiece){
+            rowCount++;
+            //Block
+            if(rowCount == (BOARD_HEIGHT-1)){
+                return y*BOARD_WIDTH + x;
+            }
+        }
+        pos = (BOARD_WIDTH-1) - x;
+        square = board[pos][x];
+        if(square == playerPiece){
+            rowCount2++;
+            //Block
+            if(rowCount == (BOARD_HEIGHT-1)){
+                return y*BOARD_WIDTH + x;
+            }
+        }
+    }
+
     return 1;
 }
 
@@ -167,6 +223,15 @@ char getPlayersPiece(){
     return userPiece;
 }
 
+bool isGameOver(const char *board){
+    for(int i=0, l=BOARD_WIDTH*BOARD_HEIGHT; i<l; i++){
+        if( *(board+i) == BLANK_SQUARE ){
+            return false;
+        }
+    }
+    return true;
+}
+
 void clearBoard( char board[][BOARD_HEIGHT] ){
     std::memset(board, BLANK_SQUARE, BOARD_WIDTH*BOARD_HEIGHT);
 }
@@ -179,7 +244,7 @@ void drawTopBoarder( char rowBuffer[] ){
 }
 
 void drawRow( char rowBuffer[], char row[] ){
-    int i=0;
+    unsigned int i=0;
 
     rowBuffer[0] = ' '; //BORDER_VER_CHAR;
     for(i=0; i<BOARD_WIDTH-1; i++){
@@ -211,8 +276,8 @@ void printBoardToStdout( char board[][BOARD_HEIGHT] ){
     printf("%s", rowBuffer);
 }
 
-void drawMoveRow( char rowBuffer[], int rowNumber ){
-    int i=0;
+void drawMoveRow( char rowBuffer[], unsigned int rowNumber ){
+    unsigned int i=0;
 
     rowBuffer[0] = ' '; //BORDER_VER_CHAR;
     for(i=0; i<BOARD_WIDTH-1; i++){
@@ -232,7 +297,7 @@ void drawMoveRow( char rowBuffer[], int rowNumber ){
 
 void printMoveBoardToStdout(){
     char rowBuffer[ROW_LENGTH];
-    int i;
+    unsigned int i;
 
     for(i=0; i<BOARD_HEIGHT-1; i++) {
         drawMoveRow(rowBuffer, i);
