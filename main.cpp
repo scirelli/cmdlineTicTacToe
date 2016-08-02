@@ -16,6 +16,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 
 #define BOARD_WIDTH 3
@@ -45,9 +46,11 @@ void playGame(char board[][BOARD_HEIGHT]);
 void printHelp();
 char getPlayersPiece();
 bool makeMove(char move, char piece, char *board);
-bool makeMove(int move, char piece, char *board);
-int cpuMove(char board[][BOARD_HEIGHT], char piece, char playerPiece);
-bool isGameOver();
+bool makeMove(unsigned int move, char piece, char *board);
+unsigned int cpuMove(char board[][BOARD_HEIGHT], char piece, char playerPiece);
+bool isGameOver(const char *board);
+bool isWinningBoard(const char *board);
+unsigned int randRange(unsigned int min, unsigned int max);
 
 int main(int argc, const char * argv[]) {
     char board[BOARD_WIDTH][BOARD_HEIGHT],
@@ -55,7 +58,9 @@ int main(int argc, const char * argv[]) {
     
     clearBoard(board);
     printBoardToStdout(board);
-    
+
+    srand(time(NULL));
+
     if(askToPlay()){
         playGame(board);
     }else{
@@ -105,15 +110,26 @@ void playGame(char board[][BOARD_HEIGHT]){
         }else if(userResponse >= '1' && userResponse <= '9'){
             if( makeMove(userResponse, userPiece, *board) ){
                 printBoardToStdout(board);
-                printf("\n\nCPU's turn...\n");
-                sleep(2);
-                if(!makeMove(cpuMove(board, cpuPiece, userPiece), cpuPiece, *board)){
-                    printf("Game Over");
+
+                if(isWinningBoard(*board)) {
+                    printf("YOU WIN!");
                     keepPlaying = false;
+                    break;
+                }else{
+                    printf("\n\nCPU's turn...\n");
+                    sleep(2);
+                    if(!makeMove(cpuMove(board, cpuPiece, userPiece), cpuPiece, *board)){
+                        printf("Game Over\n");
+                        keepPlaying = false;
+                    }else if(isWinningBoard(*board)) {
+                        printf("CPU WINS!");
+                        keepPlaying = false;
+                        break;
+                    }
                 }
             }else{
-                if(isGameOver(board)){
-                    printf("Game Over");
+                if(isGameOver(*board)){
+                    printf("Game Over\n");
                     keepPlaying = false;
                 }else{
                     printf("Invalid move! Try again. %c\n\n", userResponse);
@@ -124,18 +140,18 @@ void playGame(char board[][BOARD_HEIGHT]){
         }else if( userResponse == 'p' ){
             printBoardToStdout(board);
         }else{
-            printf("Unrecognized character: '%c'", userResponse);
+            printf("Unrecognized character: '%c'\n", userResponse);
         }
     }
 }
 
 bool makeMove(char move, char piece, char *board){
-    return makeMove((move - '0')-1, piece, board);
+    return makeMove((unsigned int)((move - '0')-1), piece, board);
 }
 
 //i = (BOARD_WIDTH*y) + x
 bool makeMove(unsigned int move, char piece, char *board){
-    if( move > 8 || move < 0 ) return false;
+    if( move > 8 ) return false;
     char *pos = board+move;
     
     if(*pos == BLANK_SQUARE){
@@ -147,51 +163,88 @@ bool makeMove(unsigned int move, char piece, char *board){
 }
 
 unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
-    char openSpots = [BOARD_WIDTH*BOARD_HEIGHT],
-         blockableSpots = [BOARD_WIDTH];
+    char openSpots[BOARD_WIDTH*BOARD_HEIGHT];
     unsigned char openSpotsPtr = 0,
                   blockableSpotsPtr = 0,
                   square = BLANK_SQUARE;
 
-    //horazontal 
-    for(unsigned int y=0, rowCount=0; y<BOARD_HEIGHT; y++){
+    //Scan horazontal 
+    for(unsigned int y=0, userMoveCount=0, cpuMoveCount=0, oneLastMove=BOARD_WIDTH-1; y<BOARD_HEIGHT; y++){
         for(unsigned int x=0; x<BOARD_WIDTH; x++){
             square = board[x][y];
+
+            //Block or Win
+            if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
+                return y*BOARD_WIDTH + x;
+            }
+
             if(square == BLANK_SQUARE){
                 openSpots[openSpotsPtr++] = y*BOARD_WIDTH + x;
             }else if(square == playerPiece){
-                rowCount++;
-                //Block
-                if(rowCount == (BOARD_WIDTH-1)){
-                    return y*BOARD_WIDTH + x;
-                }
+                userMoveCount++;
+            }else if(square == cpuPiece){
+                cpuMoveCount++;
             }
         }
-        rowCount = 0;
+        userMoveCount = 0;
+        cpuMoveCount = 0;
     }
 
-    //Left angle
-    for(unsigned int x=0,pos=0, rowCount=0, rowCount2=0; x<BOARD_WIDTH; x++){
-        square = board[x][x];
-        if(square == playerPiece){
-            rowCount++;
-            //Block
-            if(rowCount == (BOARD_HEIGHT-1)){
+    //Scan Vertical
+    for(unsigned int x=0, userMoveCount=0, cpuMoveCount=0, oneLastMove=BOARD_HEIGHT-1; x<BOARD_WIDTH; x++){
+        for(unsigned int y=0; y<BOARD_HEIGHT; y++){
+            square = board[x][y];
+
+            //Block or Win
+            if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
                 return y*BOARD_WIDTH + x;
             }
+
+            if(square == playerPiece){
+                userMoveCount++;
+            }else if(square == cpuPiece){
+                cpuMoveCount++;
+            }
         }
+        userMoveCount = 0;
+        cpuMoveCount = 0;
+    }
+
+    //Scan Left and right angle
+    for(unsigned int x=0,pos=0, userMoveCount=0, cpuMoveCount=0, userMoveCount2=0, cpuMoveCount2=0, oneLastMove=BOARD_HEIGHT-1; x<BOARD_WIDTH; x++){
+        square = board[x][x];
+
+        if(square == playerPiece){
+            userMoveCount++;
+        }else if(square == cpuPiece){
+            cpuMoveCount++;
+        }
+        //Block or Win
+        if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
+            return x*BOARD_WIDTH + x;
+        }
+
         pos = (BOARD_WIDTH-1) - x;
         square = board[pos][x];
+
         if(square == playerPiece){
-            rowCount2++;
-            //Block
-            if(rowCount == (BOARD_HEIGHT-1)){
-                return y*BOARD_WIDTH + x;
-            }
+            userMoveCount2++;
+        }else if(square == cpuPiece){
+            cpuMoveCount2++;
+        }
+        //Block or Win
+        if(userMoveCount2 == oneLastMove || cpuMoveCount2 == oneLastMove){
+            return x*BOARD_WIDTH + pos;
         }
     }
+    
+    return openSpots[randRange(0,openSpotsPtr)];
+}
 
-    return 1;
+unsigned int randRange( unsigned int min, unsigned int max ){
+    float r = rand()/RAND_MAX;
+    float d = max - min;
+    return (unsigned int)(d*r) + min;
 }
 
 void printHelp(){
@@ -217,10 +270,14 @@ char getPlayersPiece(){
         default:
             userPiece = PIECE_ONE;
     }
-    printf("\n\nYour chose: %c", userPiece);
+    printf("\n\nYou chose: %c", userPiece);
 
     fgetc(stdin);
     return userPiece;
+}
+
+bool isWinningBoard(const char *board){
+    return false;
 }
 
 bool isGameOver(const char *board){
