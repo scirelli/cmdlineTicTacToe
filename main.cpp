@@ -244,8 +244,11 @@ unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece
         }
         //Block or Win
         if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
-            //TODO: figure out how to handle ending open square or open square some where along the way.
-            return openSpot;
+            if( x < BOARD_WIDTH-1 && x < BOARD_HEIGHT-1 ){
+                return (x+1)*BOARD_WIDTH + (x+1);
+            }else{
+                return openSpot;
+            }
         }
         
         //Scan top right to bottom left
@@ -261,7 +264,11 @@ unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece
         }
         //Block or Win
         if(userMoveCount2 == oneLastMove || cpuMoveCount2 == oneLastMove){
-            return openSpot2;
+            if( pos < BOARD_WIDTH-1 && x < BOARD_HEIGHT-1 ){
+                return (x+1)*BOARD_WIDTH + ((BOARD_WIDTH-1) - (x+1));
+            }else{
+                return openSpot2;
+            }
         }
     }
     
