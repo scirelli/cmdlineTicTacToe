@@ -21,11 +21,19 @@
 
 #define BOARD_WIDTH 3
 #define BOARD_HEIGHT BOARD_WIDTH
+#define NUMBER_OF_SQUARES BOARD_WIDTH*BOARD_HEIGHT
 
-#define ROW_LENGTH BOARD_WIDTH*4+3 // | X | O | X |\n\000 
+#define ROW_LEFT_PADDING_LENGTH 1
+#define ROW_RIGHT_PADDING_LENGTH 0
+#define ROW_PIECE_SEPARATOR_LENGTH 3 //' | ' 3 characters
+#define TOTAL_ROW_PIECE_SEPARATOR_LENGTH BOARD_WIDTH*ROW_PIECE_SEPARATOR_LENGTH
+#define ROW_PRINT_LENGTH BOARD_WIDTH + TOTAL_ROW_PIECE_SEPARATOR_LENGTH + ROW_LEFT_PADDING_LENGTH+ROW_RIGHT_PADDING_LENGTH // X | O | X \n\000 
 
 #define BORDER_HOR_CHAR '-'
 #define BORDER_VER_CHAR '|'
+
+#define BOARD_LEFT_PADDING_CHAR ' '
+#define BOARD_RIGHT_PADDING_CHAR ' '
 
 #define BLANK_SQUARE ' '
 
@@ -39,6 +47,7 @@
 void clearBoard( char board[][BOARD_HEIGHT] );
 void drawTopBoarder( char rowBuffer[] );
 void drawRow( char rowBuffer[], char row[] );
+void drawRowLeftPadding( char rowBuffer[], char row[] );
 void printBoardToStdout( char board[][BOARD_HEIGHT] );
 void printMoveBoardToStdout();
 bool askToPlay();
@@ -53,7 +62,7 @@ bool isWinningBoard(const char *board);
 unsigned int randRange(unsigned int min, unsigned int max);
 
 int main(int argc, const char * argv[]) {
-    char board[BOARD_WIDTH][BOARD_HEIGHT],
+    char board[BOARD_WIDTH][BOARD_HEIGHT] = {'X','O', 'X', 'X','O', 'X', 'X','O', 'X'},
          userChar = '\0';
     
     clearBoard(board);
@@ -141,6 +150,7 @@ void playGame(char board[][BOARD_HEIGHT]){
             printBoardToStdout(board);
         }else{
             printf("Unrecognized character: '%c'\n", userResponse);
+            printHelp();
         }
     }
 }
@@ -163,19 +173,23 @@ bool makeMove(unsigned int move, char piece, char *board){
 }
 
 unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
-    char openSpots[BOARD_WIDTH*BOARD_HEIGHT];
-    unsigned char openSpotsPtr = 0,
-                  blockableSpotsPtr = 0,
-                  square = BLANK_SQUARE;
+    unsigned int openSpots[BOARD_WIDTH*BOARD_HEIGHT],
+                 openSpotsPtr = 0,
+                 blockableSpotsPtr = 0;
+    unsigned char square = BLANK_SQUARE;
 
     //Scan horazontal 
     for(unsigned int y=0, userMoveCount=0, cpuMoveCount=0, oneLastMove=BOARD_WIDTH-1; y<BOARD_HEIGHT; y++){
         for(unsigned int x=0; x<BOARD_WIDTH; x++){
-            square = board[x][y];
+            square = board[y][x];
 
             //Block or Win
             if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
-                return y*BOARD_WIDTH + x;
+                if(x < BOARD_WIDTH-1){
+                    return y*BOARD_WIDTH + (x+1);
+                }else{
+                    return openSpots[openSpotsPtr-1];
+                }
             }
 
             if(square == BLANK_SQUARE){
@@ -191,16 +205,22 @@ unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece
     }
 
     //Scan Vertical
-    for(unsigned int x=0, userMoveCount=0, cpuMoveCount=0, oneLastMove=BOARD_HEIGHT-1; x<BOARD_WIDTH; x++){
+    for(unsigned int x=0, userMoveCount=0, cpuMoveCount=0, oneLastMove=BOARD_HEIGHT-1, openSpot=0; x<BOARD_WIDTH; x++){
         for(unsigned int y=0; y<BOARD_HEIGHT; y++){
-            square = board[x][y];
+            square = board[y][x];
 
             //Block or Win
             if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
-                return y*BOARD_WIDTH + x;
+                if(x < BOARD_HEIGHT-1){
+                    return (y+1)*BOARD_WIDTH + x;
+                }else{
+                    return openSpot;
+                }
             }
 
-            if(square == playerPiece){
+            if(square == BLANK_SQUARE){
+                openSpot = y*BOARD_WIDTH + x;
+            }else if(square == playerPiece){
                 userMoveCount++;
             }else if(square == cpuPiece){
                 cpuMoveCount++;
@@ -211,30 +231,37 @@ unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece
     }
 
     //Scan Left and right angle
-    for(unsigned int x=0,pos=0, userMoveCount=0, cpuMoveCount=0, userMoveCount2=0, cpuMoveCount2=0, oneLastMove=BOARD_HEIGHT-1; x<BOARD_WIDTH; x++){
+    for(unsigned int x=0,pos=0, userMoveCount=0, cpuMoveCount=0, userMoveCount2=0, cpuMoveCount2=0, oneLastMove=BOARD_HEIGHT-1, openSpot=0, openSpot2=0; x<BOARD_WIDTH; x++){
+        //Scan top left to bottom right
         square = board[x][x];
-
-        if(square == playerPiece){
+        
+        if(square == BLANK_SQUARE){
+            openSpot = x*BOARD_WIDTH + x;
+        }else if(square == playerPiece){
             userMoveCount++;
         }else if(square == cpuPiece){
             cpuMoveCount++;
         }
         //Block or Win
         if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
-            return x*BOARD_WIDTH + x;
+            //TODO: figure out how to handle ending open square or open square some where along the way.
+            return openSpot;
         }
-
+        
+        //Scan top right to bottom left
         pos = (BOARD_WIDTH-1) - x;
-        square = board[pos][x];
+        square = board[x][pos];
 
-        if(square == playerPiece){
+        if(square == BLANK_SQUARE){
+            openSpot2 = x*BOARD_WIDTH + pos;
+        }else if(square == playerPiece){
             userMoveCount2++;
         }else if(square == cpuPiece){
             cpuMoveCount2++;
         }
         //Block or Win
         if(userMoveCount2 == oneLastMove || cpuMoveCount2 == oneLastMove){
-            return x*BOARD_WIDTH + pos;
+            return openSpot2;
         }
     }
     
@@ -295,32 +322,42 @@ void clearBoard( char board[][BOARD_HEIGHT] ){
 
 void drawTopBoarder( char rowBuffer[] ){
     //Draw top border
-    std::memset(rowBuffer, BORDER_HOR_CHAR, ROW_LENGTH-2);
-    rowBuffer[ROW_LENGTH-2] = '\n';
-    rowBuffer[ROW_LENGTH-1] = '\0';
+    std::memset(rowBuffer, BORDER_HOR_CHAR, ROW_PRINT_LENGTH-2);
+    rowBuffer[ROW_PRINT_LENGTH-2] = '\n';
+    rowBuffer[ROW_PRINT_LENGTH-1] = '\0';
+}
+
+void drawRowLeftPadding( char rowBuffer[], char row[] ){
+    int i=0;
+
+    for(i=0; i<BOARD_WIDTH && i<ROW_LEFT_PADDING_LENGTH; i++){
+        rowBuffer[i] = BOARD_LEFT_PADDING_CHAR;
+    }
 }
 
 void drawRow( char rowBuffer[], char row[] ){
-    unsigned int i=0;
+    unsigned int i = 0,
+        offset = ROW_LEFT_PADDING_LENGTH;
 
-    rowBuffer[0] = ' '; //BORDER_VER_CHAR;
-    for(i=0; i<BOARD_WIDTH-1; i++){
-        rowBuffer[i*4+1] = ' ';
-        rowBuffer[i*4+2] = row[i];
-        rowBuffer[i*4+3] = ' ';
-        rowBuffer[i*4+4] = BORDER_VER_CHAR;
+    drawRowLeftPadding(rowBuffer, row);
+
+    // X | O | X \n\0
+    for(i=0; i<BOARD_WIDTH-1 && (offset+ROW_PIECE_SEPARATOR_LENGTH)<ROW_PRINT_LENGTH; i++){
+        rowBuffer[offset++] = row[i];
+        rowBuffer[offset++] = ' ';
+        rowBuffer[offset++] = BORDER_VER_CHAR;
+        rowBuffer[offset++] = ' ';
     }
-    rowBuffer[i*4+1] = ' ';
-    rowBuffer[i*4+2] = row[i];
-    rowBuffer[i*4+3] = ' ';
-    rowBuffer[i*4+4] = ' ';
-
-    rowBuffer[ROW_LENGTH-2] = '\n';
-    rowBuffer[ROW_LENGTH-1] = '\0';
+    if(offset+ROW_PIECE_SEPARATOR_LENGTH < ROW_PRINT_LENGTH){
+        rowBuffer[offset++] = row[i];
+        rowBuffer[offset++] = ' ';
+        rowBuffer[offset++] = '\n';
+        rowBuffer[offset] = '\0';
+    }
 }
 
 void printBoardToStdout( char board[][BOARD_HEIGHT] ){
-    char rowBuffer[ROW_LENGTH];
+    char rowBuffer[ROW_PRINT_LENGTH];
     int i=0;
 
     for(i=0; i<BOARD_HEIGHT-1; i++) {
@@ -333,35 +370,13 @@ void printBoardToStdout( char board[][BOARD_HEIGHT] ){
     printf("%s", rowBuffer);
 }
 
-void drawMoveRow( char rowBuffer[], unsigned int rowNumber ){
-    unsigned int i=0;
-
-    rowBuffer[0] = ' '; //BORDER_VER_CHAR;
-    for(i=0; i<BOARD_WIDTH-1; i++){
-        rowBuffer[i*4+1] = ' ';
-        rowBuffer[i*4+2] = '0' + (rowNumber*BOARD_WIDTH + i+1);
-        rowBuffer[i*4+3] = ' ';
-        rowBuffer[i*4+4] = BORDER_VER_CHAR;
-    }
-    rowBuffer[i*4+1] = ' ';
-    rowBuffer[i*4+2] = '0' + (rowNumber*BOARD_WIDTH + i+1);
-    rowBuffer[i*4+3] = ' ';
-    rowBuffer[i*4+4] = ' ';
-
-    rowBuffer[ROW_LENGTH-2] = '\n';
-    rowBuffer[ROW_LENGTH-1] = '\0';
-}
-
 void printMoveBoardToStdout(){
-    char rowBuffer[ROW_LENGTH];
+    char board[BOARD_WIDTH][BOARD_HEIGHT];
     unsigned int i;
+    
+   for(i=0; i<BOARD_WIDTH*BOARD_HEIGHT; i++){
+       ((char *)board)[i] = '0' + (i+1);
+   }
 
-    for(i=0; i<BOARD_HEIGHT-1; i++) {
-        drawMoveRow(rowBuffer, i);
-        printf("%s", rowBuffer);
-        drawTopBoarder(rowBuffer);
-        printf("%s", rowBuffer);
-    }
-    drawMoveRow(rowBuffer, i);
-    printf("%s", rowBuffer);
+   printBoardToStdout(board);
 }
