@@ -59,10 +59,13 @@ bool makeMove(unsigned int move, char piece, char *board);
 unsigned int cpuMove(char board[][BOARD_HEIGHT], char piece, char playerPiece);
 bool isGameOver(const char *board);
 bool isWinningBoard(const char *board);
-unsigned int randRange(unsigned int min, unsigned int max);
+int randRange(unsigned int min, unsigned int max);
+int cpuMoveScanHorazontalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece, unsigned int openSpots[]);
+int cpuMoveScanVerticalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece);
+int cpuMovePickEmptySqure(char *board);
 
 int main(int argc, const char * argv[]) {
-    char board[BOARD_WIDTH][BOARD_HEIGHT] = {'X','O', 'X', 'X','O', 'X', 'X','O', 'X'},
+    char board[BOARD_WIDTH][BOARD_HEIGHT] = {' ',' ', ' ', ' ',' ', ' ', ' ',' ', ' '},
          userChar = '\0';
     
     clearBoard(board);
@@ -144,7 +147,7 @@ void playGame(char board[][BOARD_HEIGHT]){
                     printf("Invalid move! Try again. %c\n\n", userResponse);
                 }
             }
-        }else if( userResponse == ESCAPE_CHAR ){
+        }else if( userResponse == ESCAPE_CHAR || userResponse == 'q' || userResponse == 'Q'){
             keepPlaying = false;
         }else if( userResponse == 'p' ){
             printBoardToStdout(board);
@@ -172,83 +175,92 @@ bool makeMove(unsigned int move, char piece, char *board){
     return false;
 }
 
-unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
-    unsigned int openSpots[BOARD_WIDTH*BOARD_HEIGHT],
-                 openSpotsPtr = 0,
-                 blockableSpotsPtr = 0;
+int cpuMoveScanHorazontalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+    unsigned int lastOpenSpot   = 0,
+                 userMoveCount  = 0,
+                 cpuMoveCount   = 0,
+                 oneLastMove    = BOARD_WIDTH-1;
     unsigned char square = BLANK_SQUARE;
-
-    //Scan horazontal 
-    for(unsigned int y=0, userMoveCount=0, cpuMoveCount=0, oneLastMove=BOARD_WIDTH-1; y<BOARD_HEIGHT; y++){
+    
+    //Scan all horazontal rows
+    for(unsigned int y=0; y<BOARD_HEIGHT; y++){
+        //Scan a row
         for(unsigned int x=0; x<BOARD_WIDTH; x++){
             square = board[y][x];
 
-            //Block or Win
-            if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
-                if(x < BOARD_WIDTH-1){
-                    return y*BOARD_WIDTH + (x+1);
-                }else{
-                    return openSpots[openSpotsPtr-1];
-                }
-            }
-
             if(square == BLANK_SQUARE){
-                openSpots[openSpotsPtr++] = y*BOARD_WIDTH + x;
+                lastOpenSpot = y*BOARD_WIDTH + x;
             }else if(square == playerPiece){
                 userMoveCount++;
             }else if(square == cpuPiece){
                 cpuMoveCount++;
             }
         }
+        //Block or Win
+        if((userMoveCount == oneLastMove && cpuMoveCount == 0) || (cpuMoveCount == oneLastMove && userMoveCount == 0)){
+            return lastOpenSpot;
+        }
+
         userMoveCount = 0;
         cpuMoveCount = 0;
     }
 
+    return -1;
+}
+
+int cpuMoveScanVerticalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+    unsigned int lastOpenSpot   = 0,
+                 userMoveCount  = 0,
+                 cpuMoveCount   = 0,
+                 oneLastMove    = BOARD_HEIGHT-1;
+    unsigned char square = BLANK_SQUARE;
+    
     //Scan Vertical
-    for(unsigned int x=0, userMoveCount=0, cpuMoveCount=0, oneLastMove=BOARD_HEIGHT-1, openSpot=0; x<BOARD_WIDTH; x++){
+    for(unsigned int x=0; x<BOARD_WIDTH; x++){
         for(unsigned int y=0; y<BOARD_HEIGHT; y++){
             square = board[y][x];
 
-            //Block or Win
-            if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
-                if(x < BOARD_HEIGHT-1){
-                    return (y+1)*BOARD_WIDTH + x;
-                }else{
-                    return openSpot;
-                }
-            }
-
             if(square == BLANK_SQUARE){
-                openSpot = y*BOARD_WIDTH + x;
+                lastOpenSpot = y*BOARD_WIDTH + x;
             }else if(square == playerPiece){
                 userMoveCount++;
             }else if(square == cpuPiece){
                 cpuMoveCount++;
             }
         }
+        //Block or Win
+        if((userMoveCount == oneLastMove && cpuMoveCount == 0) || (cpuMoveCount == oneLastMove && userMoveCount == 0)){
+            return lastOpenSpot;
+        }
+
         userMoveCount = 0;
         cpuMoveCount = 0;
     }
 
+    return -1;
+}
+
+int cpuMoveScanDiagnalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+    unsigned int userMoveCount  = 0,
+                 cpuMoveCount   = 0,
+                 userMoveCount2 = 0,
+                 cpuMoveCount2  = 0,
+                 lastOpenSpot   = 0,
+                 lastOpenSpot2  = 0,
+                 oneLastMove    = oneLastMove = BOARD_HEIGHT-1;
+    unsigned char square = BLANK_SQUARE;
+
     //Scan Left and right angle
-    for(unsigned int x=0,pos=0, userMoveCount=0, cpuMoveCount=0, userMoveCount2=0, cpuMoveCount2=0, oneLastMove=BOARD_HEIGHT-1, openSpot=0, openSpot2=0; x<BOARD_WIDTH; x++){
+    for(unsigned int x=0, pos=0; x<BOARD_WIDTH; x++){
         //Scan top left to bottom right
         square = board[x][x];
         
         if(square == BLANK_SQUARE){
-            openSpot = x*BOARD_WIDTH + x;
+            lastOpenSpot = x*BOARD_WIDTH + x;
         }else if(square == playerPiece){
             userMoveCount++;
         }else if(square == cpuPiece){
             cpuMoveCount++;
-        }
-        //Block or Win
-        if(userMoveCount == oneLastMove || cpuMoveCount == oneLastMove){
-            if( x < BOARD_WIDTH-1 && x < BOARD_HEIGHT-1 ){
-                return (x+1)*BOARD_WIDTH + (x+1);
-            }else{
-                return openSpot;
-            }
         }
         
         //Scan top right to bottom left
@@ -256,34 +268,80 @@ unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece
         square = board[x][pos];
 
         if(square == BLANK_SQUARE){
-            openSpot2 = x*BOARD_WIDTH + pos;
+            lastOpenSpot2 = x*BOARD_WIDTH + pos;
         }else if(square == playerPiece){
             userMoveCount2++;
         }else if(square == cpuPiece){
             cpuMoveCount2++;
         }
-        //Block or Win
-        if(userMoveCount2 == oneLastMove || cpuMoveCount2 == oneLastMove){
-            if( pos < BOARD_WIDTH-1 && x < BOARD_HEIGHT-1 ){
-                return (x+1)*BOARD_WIDTH + ((BOARD_WIDTH-1) - (x+1));
-            }else{
-                return openSpot2;
-            }
+    }
+    //Block or Win top left to bottome right
+    if((userMoveCount == oneLastMove && cpuMoveCount == 0) || (cpuMoveCount == oneLastMove && userMoveCount == 0)){
+        return lastOpenSpot;
+    }
+    //Block or Win top right to bottom left
+    if((userMoveCount2 == oneLastMove && cpuMoveCount2 == 0) || (cpuMoveCount2 == oneLastMove && userMoveCount2 == 0)){
+        return lastOpenSpot2;
+    }
+
+    return -1;
+}
+
+int cpuMovePickEmptySqure(char *board){
+    unsigned int openSpots[BOARD_WIDTH*BOARD_HEIGHT],
+                 openSpotsPtr = 0;
+    unsigned char square = BLANK_SQUARE;
+
+    for(unsigned int i=0, length=BOARD_HEIGHT*BOARD_WIDTH; i<length; i++){
+        square = board[i];
+        if(square == BLANK_SQUARE){
+            openSpots[openSpotsPtr++] = i;
         }
     }
     
-    return openSpots[randRange(0,openSpotsPtr)];
+    if(openSpotsPtr == 0){
+        return 0;
+    }
+
+    openSpotsPtr = (unsigned int)randRange(0,openSpotsPtr);
+    return openSpots[openSpotsPtr];
 }
 
-unsigned int randRange( unsigned int min, unsigned int max ){
-    float r = rand()/RAND_MAX;
-    float d = max - min;
-    return (unsigned int)(d*r) + min;
+unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+    unsigned int openSpots[BOARD_WIDTH*BOARD_HEIGHT];
+    int move = -1;
+    unsigned char square = BLANK_SQUARE;
+
+    move = cpuMoveScanHorazontalRows(board, cpuPiece, playerPiece);
+    if(move >= 0){
+        return (unsigned int)move;
+    }
+
+    move = cpuMoveScanVerticalRows(board, cpuPiece, playerPiece);
+    if(move >= 0){
+        return (unsigned int)move;
+    }
+
+    move = cpuMoveScanDiagnalRows(board, cpuPiece, playerPiece);
+    if(move >= 0){
+        return (unsigned int)move;
+    }
+    
+    move = cpuMovePickEmptySqure(*board);
+
+    return (unsigned int)move;
+}
+
+int randRange( unsigned int min, unsigned int max ){
+    float r = (float)rand()/(float)RAND_MAX;
+    float d = (float)((max+1) - min);
+    return (int)(d*r) + min;
 }
 
 void printHelp(){
     printf("\n\n=========================================\n");
-    printf("Enter %c at any time to bring up this help.\n\n", HELP_CHAR);
+    printf("Enter %c at any time to bring up this help.\n", HELP_CHAR);
+    printf("Type q to quit.\n\n");
     printf("Enter a corresponding number for the square,\nwhere you want to place your piece\n\n");
     printMoveBoardToStdout();
     printf("\n\n");
