@@ -57,15 +57,18 @@ char getPlayersPiece();
 bool makeMove(char move, char piece, char *board);
 bool makeMove(unsigned int move, char piece, char *board);
 unsigned int cpuMove(char board[][BOARD_HEIGHT], char piece, char playerPiece);
-bool isGameOver(const char *board);
 bool isWinningBoard(const char *board);
 int randRange(unsigned int min, unsigned int max);
 int cpuMoveScanHorazontalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece, unsigned int openSpots[]);
 int cpuMoveScanVerticalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece);
 int cpuMovePickEmptySqure(char *board);
+bool isTiedBoard(const char *board);
+char checkVertialWin(const char board[][BOARD_HEIGHT]);
+char checkHorazontalWin(const char board[][BOARD_HEIGHT]);
+char checkDiagnalWin(const char board[][BOARD_WIDTH]);
 
 int main(int argc, const char * argv[]) {
-    char board[BOARD_WIDTH][BOARD_HEIGHT] = {' ',' ', ' ', ' ',' ', ' ', ' ',' ', ' '},
+    char board[BOARD_HEIGHT][BOARD_WIDTH] = {' ',' ', ' ', ' ',' ', ' ', ' ',' ', ' '},
          userChar = '\0';
     
     clearBoard(board);
@@ -117,39 +120,44 @@ void playGame(char board[][BOARD_HEIGHT]){
         userResponse = fgetc(stdin);
         fgetc(stdin);
 
-        if(userResponse == '?'){
+        if(userResponse == '?' || userResponse == 'h'){
             printHelp();
         }else if(userResponse >= '1' && userResponse <= '9'){
             if( makeMove(userResponse, userPiece, *board) ){
                 printBoardToStdout(board);
-
-                if(isWinningBoard(*board)) {
-                    printf("YOU WIN!");
-                    keepPlaying = false;
-                    break;
-                }else{
-                    printf("\n\nCPU's turn...\n");
-                    sleep(2);
-                    if(!makeMove(cpuMove(board, cpuPiece, userPiece), cpuPiece, *board)){
-                        printf("Game Over\n");
-                        keepPlaying = false;
-                    }else if(isWinningBoard(*board)) {
-                        printf("CPU WINS!");
-                        keepPlaying = false;
-                        break;
-                    }
-                }
-            }else{
-                if(isGameOver(*board)){
+                if(isWinningBoard(*board) == userPiece){
+                    printf("YOU WIN!\n");
                     printf("Game Over\n");
                     keepPlaying = false;
-                }else{
-                    printf("Invalid move! Try again. %c\n\n", userResponse);
+                    break;
+                }else if(isTiedBoard(*board) == true){
+                    printf("TIED!\n");
+                    printf("Game Over\n");
+                    keepPlaying = false;
+                    break;
                 }
+                
+                printf("\n\nCPU's turn...\n");
+                sleep(1);
+                makeMove(cpuMove(board, cpuPiece, userPiece), cpuPiece, *board);
+                if(isWinningBoard(*board) == cpuPiece){
+                    printf("CPU WINS!\n");
+                    printf("Game Over\n");
+                    keepPlaying = false;
+                    break;
+                }else if(isTiedBoard(*board) == true){
+                    printf("TIED!\n");
+                    printf("Game Over\n");
+                    keepPlaying = false;
+                    break;
+                }
+
+            }else{
+                printf("Invalid move! Try again. %c\n\n", userResponse);
             }
         }else if( userResponse == ESCAPE_CHAR || userResponse == 'q' || userResponse == 'Q'){
             keepPlaying = false;
-        }else if( userResponse == 'p' ){
+        }else if( userResponse == 'p' || userResponse == 'P' ){
             printBoardToStdout(board);
         }else{
             printf("Unrecognized character: '%c'\n", userResponse);
@@ -175,7 +183,7 @@ bool makeMove(unsigned int move, char piece, char *board){
     return false;
 }
 
-int cpuMoveScanHorazontalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+int cpuMoveScanHorazontalRows(char board[][BOARD_WIDTH], char cpuPiece, char playerPiece){
     unsigned int lastOpenSpot   = 0,
                  userMoveCount  = 0,
                  cpuMoveCount   = 0,
@@ -208,7 +216,7 @@ int cpuMoveScanHorazontalRows(char board[][BOARD_HEIGHT], char cpuPiece, char pl
     return -1;
 }
 
-int cpuMoveScanVerticalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+int cpuMoveScanVerticalRows(char board[][BOARD_WIDTH], char cpuPiece, char playerPiece){
     unsigned int lastOpenSpot   = 0,
                  userMoveCount  = 0,
                  cpuMoveCount   = 0,
@@ -240,7 +248,7 @@ int cpuMoveScanVerticalRows(char board[][BOARD_HEIGHT], char cpuPiece, char play
     return -1;
 }
 
-int cpuMoveScanDiagnalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+int cpuMoveScanDiagnalRows(char board[][BOARD_WIDTH], char cpuPiece, char playerPiece){
     unsigned int userMoveCount  = 0,
                  cpuMoveCount   = 0,
                  userMoveCount2 = 0,
@@ -307,7 +315,7 @@ int cpuMovePickEmptySqure(char *board){
     return openSpots[openSpotsPtr];
 }
 
-unsigned int cpuMove(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece){
+unsigned int cpuMove(char board[][BOARD_WIDTH], char cpuPiece, char playerPiece){
     unsigned int openSpots[BOARD_WIDTH*BOARD_HEIGHT];
     int move = -1;
     unsigned char square = BLANK_SQUARE;
@@ -368,20 +376,103 @@ char getPlayersPiece(){
     return userPiece;
 }
 
-bool isWinningBoard(const char *board){
+char checkHorazontalWin(const char board[][BOARD_WIDTH]){
+    unsigned char firstSquare = BLANK_SQUARE,
+                  nextSquare = BLANK_SQUARE;
+    bool winingRow = true;
+    
+    //Scan all horazontal rows
+    for(unsigned int y=0; y<BOARD_HEIGHT; y++){
+        //Scan a row
+        firstSquare = board[y][0];
+        for(unsigned int x=1; x<BOARD_WIDTH; x++){
+            nextSquare = board[y][x];
+            if(nextSquare == BLANK_SQUARE || nextSquare != firstSquare) {
+                winingRow = false;
+                break;
+            }
+        }
+        if(winingRow == true){
+            return firstSquare;
+        }
+        winingRow = true;
+    }
+
+    return BLANK_SQUARE;
+}
+
+char checkVertialWin(const char board[][BOARD_WIDTH]){
+    unsigned char firstSquare = BLANK_SQUARE,
+                  nextSquare = BLANK_SQUARE;
+    bool winingRow = true;
+    
+    //Scan all horazontal rows
+    for(unsigned int x=0; x<BOARD_WIDTH; x++){
+        //Scan a row
+        firstSquare = board[0][x];
+        for(unsigned int y=1; y<BOARD_HEIGHT; y++){
+            nextSquare = board[y][x];
+            if(nextSquare == BLANK_SQUARE || nextSquare != firstSquare) {
+                winingRow = false;
+                break;
+            }
+        }
+        if(winingRow == true){
+            return firstSquare;
+        }
+        winingRow = true;
+    }
+
+    return BLANK_SQUARE;
+}
+
+char checkDiagnalWin(const char board[][BOARD_WIDTH]){
+    unsigned char firstSquare = BLANK_SQUARE,
+                  nextSquare = BLANK_SQUARE;
+    bool winingRow = true;
+    
+    //Scan all horazontal rows
+    for(unsigned int x=0; x<BOARD_WIDTH; x++){
+        //Scan a row
+        firstSquare = board[0][x];
+        for(unsigned int y=1; y<BOARD_HEIGHT; y++){
+            nextSquare = board[y][x];
+            if(nextSquare == BLANK_SQUARE || nextSquare != firstSquare) {
+                winingRow = false;
+                break;
+            }
+        }
+        if(winingRow == true){
+            return firstSquare;
+        }
+        winingRow = true;
+    }
+
+    return BLANK_SQUARE;
+}
+
+char isWinningBoard(const char board[][BOARD_WIDTH]){
+    checkHorazontalWin(board);
+    checkVertialWin(board);
+    checkDiagnalWin(board);
+
     return false;
 }
 
-bool isGameOver(const char *board){
-    for(int i=0, l=BOARD_WIDTH*BOARD_HEIGHT; i<l; i++){
-        if( *(board+i) == BLANK_SQUARE ){
+bool isTiedBoard(const char *board){
+    unsigned char square = BLANK_SQUARE;
+
+    for(unsigned int i=0, length=BOARD_HEIGHT*BOARD_WIDTH; i<length; i++){
+        square = board[i];
+        if(square == BLANK_SQUARE){
             return false;
         }
     }
+    
     return true;
 }
 
-void clearBoard( char board[][BOARD_HEIGHT] ){
+void clearBoard( char board[][BOARD_WIDTH] ){
     std::memset(board, BLANK_SQUARE, BOARD_WIDTH*BOARD_HEIGHT);
 }
 
@@ -421,7 +512,7 @@ void drawRow( char rowBuffer[], char row[] ){
     }
 }
 
-void printBoardToStdout( char board[][BOARD_HEIGHT] ){
+void printBoardToStdout( char board[][BOARD_WIDTH] ){
     char rowBuffer[ROW_PRINT_LENGTH];
     int i=0;
 
@@ -436,7 +527,7 @@ void printBoardToStdout( char board[][BOARD_HEIGHT] ){
 }
 
 void printMoveBoardToStdout(){
-    char board[BOARD_WIDTH][BOARD_HEIGHT];
+    char board[BOARD_HEIGHT][BOARD_WIDTH];
     unsigned int i;
     
    for(i=0; i<BOARD_WIDTH*BOARD_HEIGHT; i++){
