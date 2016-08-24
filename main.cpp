@@ -57,7 +57,10 @@ char getPlayersPiece();
 bool makeMove(char move, char piece, char *board);
 bool makeMove(unsigned int move, char piece, char *board);
 unsigned int cpuMove(char board[][BOARD_HEIGHT], char piece, char playerPiece);
-bool isWinningBoard(const char *board);
+char isWinningBoard(const char board[][BOARD_HEIGHT]);
+char checkHorazontalWin(const char board[][BOARD_WIDTH]);
+char checkVertialWin(const char board[][BOARD_WIDTH]);
+char checkDiagnalWin(const char board[][BOARD_WIDTH]);
 int randRange(unsigned int min, unsigned int max);
 int cpuMoveScanHorazontalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece, unsigned int openSpots[]);
 int cpuMoveScanVerticalRows(char board[][BOARD_HEIGHT], char cpuPiece, char playerPiece);
@@ -125,7 +128,7 @@ void playGame(char board[][BOARD_HEIGHT]){
         }else if(userResponse >= '1' && userResponse <= '9'){
             if( makeMove(userResponse, userPiece, *board) ){
                 printBoardToStdout(board);
-                if(isWinningBoard(*board) == userPiece){
+                if(isWinningBoard(board) == userPiece){
                     printf("YOU WIN!\n");
                     printf("Game Over\n");
                     keepPlaying = false;
@@ -139,8 +142,11 @@ void playGame(char board[][BOARD_HEIGHT]){
                 
                 printf("\n\nCPU's turn...\n");
                 sleep(1);
-                makeMove(cpuMove(board, cpuPiece, userPiece), cpuPiece, *board);
-                if(isWinningBoard(*board) == cpuPiece){
+                if(makeMove(cpuMove(board, cpuPiece, userPiece), cpuPiece, *board) == false){
+                    printf("Error!\nCall your developer!");
+                }
+                printBoardToStdout(board);
+                if(isWinningBoard(board) == cpuPiece){
                     printf("CPU WINS!\n");
                     printf("Game Over\n");
                     keepPlaying = false;
@@ -427,36 +433,61 @@ char checkVertialWin(const char board[][BOARD_WIDTH]){
 }
 
 char checkDiagnalWin(const char board[][BOARD_WIDTH]){
-    unsigned char firstSquare = BLANK_SQUARE,
-                  nextSquare = BLANK_SQUARE;
-    bool winingRow = true;
+    unsigned char firstSquare  = BLANK_SQUARE,
+                  firstSquare2 = BLANK_SQUARE,
+                  nextSquare = BLANK_SQUARE,
+                  nextSquare2 = BLANK_SQUARE,
+                  square = BLANK_SQUARE;
+    bool winingRow = true,
+         winingRow2 = true;
     
-    //Scan all horazontal rows
-    for(unsigned int x=0; x<BOARD_WIDTH; x++){
-        //Scan a row
-        firstSquare = board[0][x];
-        for(unsigned int y=1; y<BOARD_HEIGHT; y++){
-            nextSquare = board[y][x];
-            if(nextSquare == BLANK_SQUARE || nextSquare != firstSquare) {
-                winingRow = false;
-                break;
-            }
+    firstSquare = board[0][0];
+    firstSquare2 = board[0][(BOARD_WIDTH-1)];
+    for(unsigned int x=1, pos=(BOARD_WIDTH-2); x<BOARD_WIDTH; x++){
+        //Scan top left to bottom right
+        square = board[x][x];
+        
+        if(square == BLANK_SQUARE || square != firstSquare){
+            winingRow = false;
         }
-        if(winingRow == true){
-            return firstSquare;
-        }
-        winingRow = true;
-    }
 
-    return BLANK_SQUARE;
+        //Scan top right to bottom left
+        pos = (BOARD_WIDTH-1) - x;
+        square = board[x][pos];
+
+        if(square == BLANK_SQUARE || square != firstSquare2){
+            winingRow2 = false;
+        }
+    }
+    
+    if(winingRow == true){
+        return firstSquare;
+    }else if(winingRow2 == true){
+        return firstSquare2;
+    }else{
+        return BLANK_SQUARE;
+    }
 }
 
 char isWinningBoard(const char board[][BOARD_WIDTH]){
-    checkHorazontalWin(board);
-    checkVertialWin(board);
-    checkDiagnalWin(board);
+    char piece = BLANK_SQUARE;
 
-    return false;
+    piece = checkHorazontalWin(board);
+    if(piece != BLANK_SQUARE){
+        return piece;
+    }
+
+    piece = checkVertialWin(board);
+    if(piece != BLANK_SQUARE){
+        return piece;
+    }
+
+    piece = checkDiagnalWin(board);
+    if(piece != BLANK_SQUARE){
+        return piece;
+    }
+
+    return BLANK_SQUARE;
 }
 
 bool isTiedBoard(const char *board){
