@@ -554,7 +554,7 @@ void printBoardToStdout( char board[][BOARD_WIDTH] ){
         printf("%s", rowBuffer);
     }
     drawRow(rowBuffer, board[i]);
-    printf("%s", rowBuffer);
+    printf("%s\n", rowBuffer);
 }
 
 void printMoveBoardToStdout(){
